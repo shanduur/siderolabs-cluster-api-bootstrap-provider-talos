@@ -5,7 +5,7 @@
 package v1alpha3
 
 import (
-	capiv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	capiv1 "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck
 )
 
 // Conditions and condition Reasons for the TalosConfig object

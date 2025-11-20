@@ -34,14 +34,13 @@ import (
 	"gopkg.in/yaml.v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	capiv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	capiv1 "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck
 	bsutil "sigs.k8s.io/cluster-api/bootstrap/util"
-	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/feature"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions" //nolint:staticcheck
+	"sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"      //nolint:staticcheck
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -96,7 +95,7 @@ func (r *TalosConfigReconciler) SetupWithManager(ctx context.Context, mgr ctrl.M
 
 	if feature.Gates.Enabled(feature.MachinePool) {
 		b = b.Watches(
-			&expv1.MachinePool{},
+			&capiv1.MachinePool{},
 			handler.EnqueueRequestsFromMapFunc(r.MachinePoolToBootstrapMapFunc),
 		).WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(r.Scheme, ctrl.LoggerFrom(ctx), r.WatchFilterValue))
 	}
@@ -106,7 +105,7 @@ func (r *TalosConfigReconciler) SetupWithManager(ctx context.Context, mgr ctrl.M
 		handler.EnqueueRequestsFromMapFunc(r.ClusterToTalosConfigs),
 		builder.WithPredicates(
 			predicates.All(r.Scheme, ctrl.LoggerFrom(ctx),
-				predicates.ClusterPausedTransitionsOrInfrastructureReady(r.Scheme, ctrl.LoggerFrom(ctx)),
+				predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(r.Scheme, ctrl.LoggerFrom(ctx)),
 				predicates.ResourceHasFilterLabel(r.Scheme, ctrl.LoggerFrom(ctx), r.WatchFilterValue),
 			),
 		),
@@ -471,7 +470,7 @@ func (r *TalosConfigReconciler) genConfigs(ctx context.Context, scope *TalosConf
 	// TrimPrefix returns the string unchanged if the prefix isn't present.
 	k8sVersion := constants.DefaultKubernetesVersion
 	if scope.ConfigOwner.IsMachinePool() {
-		mp := &expv1.MachinePool{}
+		mp := &capiv1.MachinePool{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(scope.ConfigOwner.Object, mp); err != nil {
 			return retBundle, patches, err
 		}
@@ -623,7 +622,7 @@ func (r *TalosConfigReconciler) MachineToBootstrapMapFunc(_ context.Context, o c
 // MachinePoolToBootstrapMapFunc is a handler.ToRequestsFunc to be used to enqueue
 // request for reconciliation of TalosConfig.
 func (r *TalosConfigReconciler) MachinePoolToBootstrapMapFunc(_ context.Context, o client.Object) []ctrl.Request {
-	m, ok := o.(*expv1.MachinePool)
+	m, ok := o.(*capiv1.MachinePool)
 	if !ok {
 		panic(fmt.Sprintf("Expected a MachinePool but got a %T", o))
 	}
@@ -668,7 +667,7 @@ func (r *TalosConfigReconciler) ClusterToTalosConfigs(ctx context.Context, o cli
 	}
 
 	if feature.Gates.Enabled(feature.MachinePool) {
-		machinePoolList := &expv1.MachinePoolList{}
+		machinePoolList := &capiv1.MachinePoolList{}
 		if err := r.Client.List(ctx, machinePoolList, selectors...); err != nil {
 			return nil
 		}
